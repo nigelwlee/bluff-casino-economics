@@ -95,8 +95,12 @@ def calculate_company_pl_month(
 
     # ─── Fixed OPEX ─────────────────────────────────────────────────
     opex_overrides = c.get("opex_overrides", {})
-    opex = {**MONTHLY_OPEX}
-    opex.update(opex_overrides)
+    if "total_opex" in opex_overrides:
+        # Allow overriding the total OPEX directly
+        opex = {"total_opex": opex_overrides["total_opex"]}
+    else:
+        opex = {**MONTHLY_OPEX}
+        opex.update(opex_overrides)
     total_opex = -sum(opex.values())
 
     profit_after_opex = profit_before_opex + total_opex

@@ -223,6 +223,7 @@ def calculate_vip_company_impact(
     vip_pct_of_total: float = 0.70,
     vip_bonus_pct: float = 0.55,
     non_vip_bonus_pct: float = 0.292,
+    vip_ggr_rate: float | None = None,
     num_months: int = 12,
     growth_rate: float | None = None,
     overrides: dict | None = None,
@@ -230,14 +231,16 @@ def calculate_vip_company_impact(
     """
     Bridge a VIP deal into the company P&L.
 
-    Calculates blended bonus rate based on VIP vs non-VIP mix,
-    then runs the company projection with that rate.
+    Calculates blended bonus and GGR rates based on VIP vs non-VIP mix,
+    then runs the company projection with those rates.
 
     Args:
         vip_monthly_wagers: Monthly VIP wager volume.
         vip_pct_of_total: What % of total volume is VIP.
         vip_bonus_pct: Effective bonus rate for VIP players (% of GGR).
         non_vip_bonus_pct: Bonus rate for non-VIP players.
+        vip_ggr_rate: VIP effective GGR rate (1 - RTP). If provided, blends
+                      with non-VIP GGR rate and adjusts channel RTPs.
         num_months: Projection length.
         growth_rate: Monthly growth rate.
         overrides: Additional overrides.
@@ -248,6 +251,26 @@ def calculate_vip_company_impact(
     blended_bonus_pct = (vip_pct_of_total * vip_bonus_pct) + (non_vip_pct * non_vip_bonus_pct)
 
     projection_overrides = {**(overrides or {}), "bonus_pct": blended_bonus_pct}
+
+    # Blend GGR rate: scale channel RTPs so blended GGR matches
+    if vip_ggr_rate is not None:
+        defaults = COMPANY_PL_DEFAULTS
+        # Non-VIP GGR rate from defaults
+        non_vip_ggr_rate = defaults["effective_ggr_pct"]
+        blended_ggr_rate = (vip_pct_of_total * vip_ggr_rate) + (non_vip_pct * non_vip_ggr_rate)
+
+        # Scale all channel RTPs proportionally to hit blended_ggr_rate
+        # Default GGR rate is effective_ggr_pct (2.48%)
+        default_ggr_rate = defaults["effective_ggr_pct"]
+        if default_ggr_rate > 0:
+            # ratio of (1 - new_rtp) / (1 - old_rtp) = blended / default
+            ggr_scale = blended_ggr_rate / default_ggr_rate
+            # New RTPs: edge scales by ggr_scale, so new_rtp = 1 - (1 - old_rtp) * scale
+            projection_overrides["provider_rtp"] = 1 - (1 - defaults["provider_rtp"]) * ggr_scale
+            projection_overrides["og_rtp"] = 1 - (1 - defaults["og_rtp"]) * ggr_scale
+            projection_overrides["sportsbook_rtp"] = 1 - (1 - defaults["sportsbook_rtp"]) * ggr_scale
+    else:
+        blended_ggr_rate = COMPANY_PL_DEFAULTS["effective_ggr_pct"]
 
     projection = calculate_company_pl_projection(
         starting_wagers=total_monthly_wagers,
@@ -263,6 +286,9 @@ def calculate_vip_company_impact(
         "vip_bonus_pct": vip_bonus_pct,
         "non_vip_bonus_pct": non_vip_bonus_pct,
         "blended_bonus_pct": blended_bonus_pct,
+        "vip_ggr_rate": vip_ggr_rate,
+        "non_vip_ggr_rate": COMPANY_PL_DEFAULTS["effective_ggr_pct"],
+        "blended_ggr_rate": blended_ggr_rate,
         "projection": projection,
     }
 
@@ -271,6 +297,7 @@ def find_breakeven_volume(
     vip_pct_of_total: float = 0.10,
     vip_bonus_pct: float = 0.55,
     non_vip_bonus_pct: float = 0.292,
+    vip_ggr_rate: float | None = None,
     overrides: dict | None = None,
     max_iterations: int = 50,
     tolerance: float = 1000.0,
@@ -284,6 +311,18 @@ def find_breakeven_volume(
     non_vip_pct = 1 - vip_pct_of_total
     blended_bonus_pct = (vip_pct_of_total * vip_bonus_pct) + (non_vip_pct * non_vip_bonus_pct)
     merged = {**(overrides or {}), "bonus_pct": blended_bonus_pct}
+
+    # Blend GGR rate if VIP GGR rate provided
+    if vip_ggr_rate is not None:
+        defaults = COMPANY_PL_DEFAULTS
+        non_vip_ggr_rate = defaults["effective_ggr_pct"]
+        blended_ggr_rate = (vip_pct_of_total * vip_ggr_rate) + (non_vip_pct * non_vip_ggr_rate)
+        default_ggr_rate = defaults["effective_ggr_pct"]
+        if default_ggr_rate > 0:
+            ggr_scale = blended_ggr_rate / default_ggr_rate
+            merged["provider_rtp"] = 1 - (1 - defaults["provider_rtp"]) * ggr_scale
+            merged["og_rtp"] = 1 - (1 - defaults["og_rtp"]) * ggr_scale
+            merged["sportsbook_rtp"] = 1 - (1 - defaults["sportsbook_rtp"]) * ggr_scale
 
     # Start with a range — profit is negative at low volume (OPEX dominates),
     # positive at high volume

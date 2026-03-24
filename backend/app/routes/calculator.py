@@ -64,6 +64,7 @@ async def calc_vip_impact(req: VIPCompanyImpactRequest):
         vip_pct_of_total=req.vip_pct_of_total,
         vip_bonus_pct=req.vip_bonus_pct,
         non_vip_bonus_pct=req.non_vip_bonus_pct,
+        vip_ggr_rate=req.vip_ggr_rate,
         num_months=req.num_months,
         growth_rate=req.growth_rate,
         overrides=req.overrides,
@@ -76,6 +77,7 @@ async def calc_breakeven(req: BreakevenRequest):
         vip_pct_of_total=req.vip_pct_of_total,
         vip_bonus_pct=req.vip_bonus_pct,
         non_vip_bonus_pct=req.non_vip_bonus_pct,
+        vip_ggr_rate=req.vip_ggr_rate,
         overrides=req.overrides,
     )
 

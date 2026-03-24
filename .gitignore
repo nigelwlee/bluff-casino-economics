@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Build
+.next/
+.turbo/
+dist/
+
+# Environment
+.env
+backend/.env
+
+# Database
+*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+.tmp/
+
+# Credentials
+credentials.json
+token.json

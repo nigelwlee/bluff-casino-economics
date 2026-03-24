@@ -8,11 +8,13 @@ from app.models.schemas import (
     CompanyPLRequest,
     VIPCompanyImpactRequest,
     EffectiveBonusRequest,
+    BreakevenRequest,
 )
 from app.engine.vip_calculator import calculate_vip_pl, compare_vip_pl
 from app.engine.company_pl import (
     calculate_company_pl_projection,
     calculate_vip_company_impact,
+    find_breakeven_volume,
 )
 from app.engine.effective_bonus import calculate_effective_bonus
 
@@ -64,6 +66,16 @@ async def calc_vip_impact(req: VIPCompanyImpactRequest):
         non_vip_bonus_pct=req.non_vip_bonus_pct,
         num_months=req.num_months,
         growth_rate=req.growth_rate,
+        overrides=req.overrides,
+    )
+
+
+@router.post("/company-pl/breakeven")
+async def calc_breakeven(req: BreakevenRequest):
+    return find_breakeven_volume(
+        vip_pct_of_total=req.vip_pct_of_total,
+        vip_bonus_pct=req.vip_bonus_pct,
+        non_vip_bonus_pct=req.non_vip_bonus_pct,
         overrides=req.overrides,
     )
 

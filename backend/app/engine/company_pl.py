@@ -265,3 +265,54 @@ def calculate_vip_company_impact(
         "blended_bonus_pct": blended_bonus_pct,
         "projection": projection,
     }
+
+
+def find_breakeven_volume(
+    vip_pct_of_total: float = 0.10,
+    vip_bonus_pct: float = 0.55,
+    non_vip_bonus_pct: float = 0.292,
+    overrides: dict | None = None,
+    max_iterations: int = 50,
+    tolerance: float = 1000.0,
+) -> dict:
+    """
+    Binary search for the total company wager volume where
+    month-1 profit_after_opex = 0.
+
+    Keeps VIP % of total constant, scales both VIP and company volume.
+    """
+    non_vip_pct = 1 - vip_pct_of_total
+    blended_bonus_pct = (vip_pct_of_total * vip_bonus_pct) + (non_vip_pct * non_vip_bonus_pct)
+    merged = {**(overrides or {}), "bonus_pct": blended_bonus_pct}
+
+    # Start with a range — profit is negative at low volume (OPEX dominates),
+    # positive at high volume
+    lo = 0.0
+    hi = 10_000_000_000.0  # $10B upper bound
+
+    for _ in range(max_iterations):
+        mid = (lo + hi) / 2
+        result = calculate_company_pl_month(mid, month=1, overrides=merged)
+        profit = result["profit_after_opex"]
+
+        if abs(profit) < tolerance:
+            break
+        if profit < 0:
+            lo = mid
+        else:
+            hi = mid
+
+    breakeven_total = (lo + hi) / 2
+    breakeven_vip = breakeven_total * vip_pct_of_total
+    final = calculate_company_pl_month(breakeven_total, month=1, overrides=merged)
+
+    return {
+        "breakeven_total_wagers": breakeven_total,
+        "breakeven_vip_wagers": breakeven_vip,
+        "vip_pct_of_total": vip_pct_of_total,
+        "blended_bonus_pct": blended_bonus_pct,
+        "profit_after_opex_at_breakeven": final["profit_after_opex"],
+        "ggr_at_breakeven": final["ggr"]["total"],
+        "ngr_at_breakeven": final["ngr"],
+        "opex": final["opex"],
+    }

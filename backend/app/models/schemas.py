@@ -53,6 +53,13 @@ class VIPCompanyImpactRequest(BaseModel):
     overrides: dict[str, Any] | None = None
 
 
+class BreakevenRequest(BaseModel):
+    vip_pct_of_total: float = Field(default=0.10, ge=0, le=1)
+    vip_bonus_pct: float = Field(default=0.55, ge=0, le=1)
+    non_vip_bonus_pct: float = Field(default=0.292, ge=0, le=1)
+    overrides: dict[str, Any] | None = None
+
+
 # ─── Effective Bonus Schemas ─────────────────────────────────────────────────
 
 

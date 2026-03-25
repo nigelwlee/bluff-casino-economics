@@ -18,7 +18,7 @@ async def chat(req: ChatRequest):
     history = [{"role": m.role, "content": m.content} for m in req.history]
 
     async def event_generator():
-        async for event in stream_agent(req.message, history):
+        async for event in stream_agent(req.message, history, req.calculator_state):
             if event["type"] == "text":
                 yield {
                     "event": "text",

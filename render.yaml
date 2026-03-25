@@ -13,4 +13,4 @@ services:
       - key: MODEL_NAME
         value: claude-sonnet-4-20250514
       - key: CORS_ORIGINS
-        value: '["https://bluff-casino-economics.vercel.app","https://frontend-7czufw8r6-nigels-projects-88ea77c4.vercel.app"]'
+        value: '["https://bluff-casino-economics.vercel.app"]'

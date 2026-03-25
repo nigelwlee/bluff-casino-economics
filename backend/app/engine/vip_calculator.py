@@ -136,12 +136,34 @@ def calculate_vip_pl(
     # Transfer promo (exponential decay, typically not active)
     transfer_promo = 0.0
 
-    # Deposit match
+    # Deposit match (proper economics with rollover recoup)
     deposit_match = 0.0
-    deposit_match_threshold = a.get("deposit_match_threshold", 0)
-    deposit_match_amount = a.get("deposit_match_max", 0.0)
-    if a.get("deposit_match_enabled") and nominal_volume >= deposit_match_threshold and deposit_match_amount > 0:
-        deposit_match = -deposit_match_amount
+    deposit_match_detail = None
+    if a.get("deposit_match_enabled"):
+        dm_deposit = a.get("deposit_match_deposit", 0.0)
+        dm_bonus_pct = a.get("deposit_match_bonus_pct", 1.0)
+        dm_max_bonus = a.get("deposit_match_max_bonus", 0.0)
+        dm_wager_req = a.get("deposit_match_wager_req", 20.0)
+        dm_house_edge = a.get("deposit_match_house_edge", 0.02)
+        dm_max_bet = a.get("deposit_match_max_bet", 0.0)
+        dm_max_win_mult = a.get("deposit_match_max_win_mult", 0.0)
+
+        raw_bonus = dm_deposit * dm_bonus_pct
+        if dm_max_bonus > 0:
+            raw_bonus = min(raw_bonus, dm_max_bonus)
+        house_recoup = raw_bonus * dm_wager_req * dm_house_edge
+        effective_cost = max(0.0, raw_bonus - house_recoup)
+        deposit_match = -effective_cost
+
+        deposit_match_detail = {
+            "deposit": dm_deposit,
+            "bonus_pct": dm_bonus_pct,
+            "raw_bonus": raw_bonus,
+            "house_recoup": house_recoup,
+            "effective_cost": effective_cost,
+            "max_bet": dm_max_bet,
+            "max_win_mult": dm_max_win_mult,
+        }
 
     # Wager milestone
     wager_milestone = 0.0
@@ -187,6 +209,7 @@ def calculate_vip_pl(
             "reload_promo": reload_promo,
             "transfer_promo": transfer_promo,
             "deposit_match": deposit_match,
+            "deposit_match_detail": deposit_match_detail,
             "wager_milestone": wager_milestone,
             "total": total_promos,
         },

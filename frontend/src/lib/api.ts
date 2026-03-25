@@ -73,7 +73,8 @@ export function connectChat(
     onToolResult: (name: string, result: Record<string, unknown>) => void;
     onDone: () => void;
     onError: (error: string) => void;
-  }
+  },
+  calculatorState?: Record<string, unknown> | null
 ) {
   const abortController = new AbortController();
 
@@ -85,6 +86,7 @@ export function connectChat(
         body: JSON.stringify({
           message,
           history: history.map((m) => ({ role: m.role, content: m.content })),
+          calculator_state: calculatorState ?? null,
         }),
         signal: abortController.signal,
       });
@@ -173,5 +175,25 @@ export async function saveScenario(
 export async function loadScenario(id: string): Promise<Scenario> {
   const response = await fetch(`${API_BASE}/scenarios/${id}`);
   if (!response.ok) throw new Error("Scenario not found");
+  return response.json();
+}
+
+export async function submitFeedback(
+  calculatorState: Record<string, unknown> | null,
+  chatHistory: ChatMessage[],
+  userNote?: string
+): Promise<{ id: number; status: string }> {
+  const response = await fetch(`${API_BASE}/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      calculator_state: calculatorState,
+      chat_history: chatHistory.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      user_note: userNote || null,
+    }),
+  });
   return response.json();
 }

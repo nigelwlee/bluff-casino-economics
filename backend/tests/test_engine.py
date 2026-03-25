@@ -189,3 +189,76 @@ class TestEffectiveBonus:
         from app.engine.effective_bonus import SCENARIO_DISTRIBUTIONS
         for scenario, dist in SCENARIO_DISTRIBUTIONS.items():
             assert sum(dist) == pytest.approx(1.0, abs=0.001), f"Scenario {scenario} doesn't sum to 1.0"
+
+
+# ─── Deposit Match Tests ──────────────────────────────────────────────────
+
+
+class TestDepositMatch:
+    def test_disabled_by_default(self):
+        """Deposit match should be 0 when not enabled."""
+        result = calculate_vip_pl(tier="whale")
+        assert result["promos"]["deposit_match"] == 0.0
+        assert result["promos"]["deposit_match_detail"] is None
+
+    def test_basic_100pct_match(self):
+        """100% match on $10K, 20x rollover, 2% edge → effective $6,000."""
+        result = calculate_vip_pl(tier="whale", assumptions={
+            "deposit_match_enabled": True,
+            "deposit_match_deposit": 10_000,
+            "deposit_match_bonus_pct": 1.0,
+            "deposit_match_max_bonus": 0,
+            "deposit_match_wager_req": 20,
+            "deposit_match_house_edge": 0.02,
+        })
+        detail = result["promos"]["deposit_match_detail"]
+        assert detail["raw_bonus"] == pytest.approx(10_000, rel=1e-6)
+        assert detail["house_recoup"] == pytest.approx(4_000, rel=1e-6)  # 10K * 20 * 0.02
+        assert detail["effective_cost"] == pytest.approx(6_000, rel=1e-6)
+        assert result["promos"]["deposit_match"] == pytest.approx(-6_000, rel=1e-6)
+
+    def test_with_cap(self):
+        """200% match on $10K capped at $5K, 20x, 2% → effective $3,000."""
+        result = calculate_vip_pl(tier="whale", assumptions={
+            "deposit_match_enabled": True,
+            "deposit_match_deposit": 10_000,
+            "deposit_match_bonus_pct": 2.0,
+            "deposit_match_max_bonus": 5_000,
+            "deposit_match_wager_req": 20,
+            "deposit_match_house_edge": 0.02,
+        })
+        detail = result["promos"]["deposit_match_detail"]
+        assert detail["raw_bonus"] == pytest.approx(5_000, rel=1e-6)  # Capped
+        assert detail["house_recoup"] == pytest.approx(2_000, rel=1e-6)  # 5K * 20 * 0.02
+        assert detail["effective_cost"] == pytest.approx(3_000, rel=1e-6)
+
+    def test_recoup_exceeds_bonus(self):
+        """High rollover + edge → recoup exceeds bonus, capped at $0."""
+        result = calculate_vip_pl(tier="whale", assumptions={
+            "deposit_match_enabled": True,
+            "deposit_match_deposit": 10_000,
+            "deposit_match_bonus_pct": 1.0,
+            "deposit_match_max_bonus": 0,
+            "deposit_match_wager_req": 50,
+            "deposit_match_house_edge": 0.05,
+        })
+        detail = result["promos"]["deposit_match_detail"]
+        # recoup = 10K * 50 * 0.05 = 25K > 10K bonus
+        assert detail["effective_cost"] == pytest.approx(0, rel=1e-6)
+        assert result["promos"]["deposit_match"] == pytest.approx(0, rel=1e-6)
+
+    def test_flows_to_ngr(self):
+        """NGR should decrease by exactly the effective cost."""
+        base = calculate_vip_pl(tier="whale")
+        with_dm = calculate_vip_pl(tier="whale", assumptions={
+            "deposit_match_enabled": True,
+            "deposit_match_deposit": 10_000,
+            "deposit_match_bonus_pct": 1.0,
+            "deposit_match_max_bonus": 0,
+            "deposit_match_wager_req": 20,
+            "deposit_match_house_edge": 0.02,
+        })
+        expected_cost = 6_000
+        assert with_dm["ngr_after_promos"] == pytest.approx(
+            base["ngr_after_promos"] - expected_cost, rel=1e-6
+        )

@@ -79,8 +79,11 @@ def calculate_company_pl_month(
     casino_ops_total = -(pragmatic_ops["total_cost"] + evo_ops["total_cost"])
     sportsbook_ops_total = -(sportsbook_ops["total_cost"])
 
+    # ─── Deposit match cost (passed from VIP bridge) ────────────────
+    deposit_match_cost = c.get("deposit_match_cost", 0.0)
+
     # ─── NGR ────────────────────────────────────────────────────────
-    ngr = total_ggr + bonuses + casino_ops_total + sportsbook_ops_total
+    ngr = total_ggr + bonuses + casino_ops_total + sportsbook_ops_total - deposit_match_cost
 
     # ─── Channel costs (affiliate + referral) ───────────────────────
     affiliate_vol_pct = c.get("affiliate_channel_pct", 0.50)
@@ -138,6 +141,7 @@ def calculate_company_pl_month(
             "sportsbook_total": sportsbook_ops_total,
             "total": casino_ops_total + sportsbook_ops_total,
         },
+        "deposit_match_cost": -deposit_match_cost if deposit_match_cost else 0,
         "ngr": ngr,
         "ngr_pct_ggr": ngr / total_ggr if total_ggr else 0,
         "channel_costs": {
@@ -224,6 +228,7 @@ def calculate_vip_company_impact(
     vip_bonus_pct: float = 0.55,
     non_vip_bonus_pct: float = 0.292,
     vip_ggr_rate: float | None = None,
+    vip_deposit_match_cost: float = 0.0,
     num_months: int = 12,
     growth_rate: float | None = None,
     overrides: dict | None = None,
@@ -251,6 +256,9 @@ def calculate_vip_company_impact(
     blended_bonus_pct = (vip_pct_of_total * vip_bonus_pct) + (non_vip_pct * non_vip_bonus_pct)
 
     projection_overrides = {**(overrides or {}), "bonus_pct": blended_bonus_pct}
+
+    if vip_deposit_match_cost > 0:
+        projection_overrides["deposit_match_cost"] = vip_deposit_match_cost
 
     # Blend GGR rate: scale channel RTPs so blended GGR matches
     if vip_ggr_rate is not None:

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routes import calculator, chat, scenarios
+from app.routes import calculator, chat, feedback, scenarios
 
 app = FastAPI(
     title="Bluff Casino Economics API",
@@ -20,6 +20,7 @@ app.add_middleware(
 
 app.include_router(calculator.router)
 app.include_router(chat.router)
+app.include_router(feedback.router)
 app.include_router(scenarios.router)
 
 

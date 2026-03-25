@@ -9,17 +9,20 @@ the LLM produces a final text response.
 from __future__ import annotations
 
 import json
-from typing import AsyncIterator
+from typing import Any, AsyncIterator
 
 from app.agent.providers.base import LLMProvider
 from app.agent.providers.anthropic import AnthropicProvider
 from app.agent.providers.openai import OpenAIProvider
 from app.agent.tools import TOOL_DEFINITIONS, execute_tool
-from app.agent.prompts import SYSTEM_PROMPT
+from app.agent.prompts import build_system_prompt
+from app.agent.memory.feedback import FeedbackStore
 from app.config import settings
 
 
 MAX_TOOL_ROUNDS = 5
+
+_feedback_store = FeedbackStore()
 
 
 def get_provider() -> LLMProvider:
@@ -29,9 +32,19 @@ def get_provider() -> LLMProvider:
     return AnthropicProvider()
 
 
+async def _build_prompt(calculator_state: dict[str, Any] | None = None) -> str:
+    """Build the system prompt with all memory layers."""
+    learned_patterns = await _feedback_store.get_active_patterns()
+    return build_system_prompt(
+        session_context=calculator_state,
+        learned_patterns=learned_patterns if learned_patterns else None,
+    )
+
+
 async def run_agent(
     user_message: str,
     history: list[dict] | None = None,
+    calculator_state: dict[str, Any] | None = None,
 ) -> dict:
     """
     Non-streaming agent loop. Runs tool calls until the LLM gives a final answer.
@@ -43,13 +56,14 @@ async def run_agent(
         }
     """
     provider = get_provider()
+    system_prompt = await _build_prompt(calculator_state)
     messages = list(history or [])
     messages.append({"role": "user", "content": user_message})
 
     executed_tools = []
 
     for _ in range(MAX_TOOL_ROUNDS):
-        result = await provider.chat_with_tools(messages, TOOL_DEFINITIONS, SYSTEM_PROMPT)
+        result = await provider.chat_with_tools(messages, TOOL_DEFINITIONS, system_prompt)
 
         if not result["tool_calls"]:
             return {"response": result["content"], "tool_calls": executed_tools}
@@ -103,6 +117,7 @@ async def run_agent(
 async def stream_agent(
     user_message: str,
     history: list[dict] | None = None,
+    calculator_state: dict[str, Any] | None = None,
 ) -> AsyncIterator[dict]:
     """
     Streaming agent loop. Yields events as they happen:
@@ -112,6 +127,7 @@ async def stream_agent(
         {"type": "done"}
     """
     provider = get_provider()
+    system_prompt = await _build_prompt(calculator_state)
     messages = list(history or [])
     messages.append({"role": "user", "content": user_message})
 
@@ -119,7 +135,7 @@ async def stream_agent(
         tool_calls_in_round = []
         text_parts = []
 
-        async for chunk in provider.stream_chat_with_tools(messages, TOOL_DEFINITIONS, SYSTEM_PROMPT):
+        async for chunk in provider.stream_chat_with_tools(messages, TOOL_DEFINITIONS, system_prompt):
             if chunk["type"] == "text":
                 yield chunk
                 text_parts.append(chunk["content"])

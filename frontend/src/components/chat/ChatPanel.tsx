@@ -12,6 +12,7 @@ interface ChatPanelProps {
   currentToolCalls: ToolCallInfo[];
   onSendMessage: (message: string) => void;
   onClear: () => void;
+  onFeedback?: (note?: string) => Promise<{ id: number; status: string }>;
 }
 
 const EXAMPLE_QUESTIONS = [
@@ -27,19 +28,46 @@ export function ChatPanel({
   currentToolCalls,
   onSendMessage,
   onClear,
+  onFeedback,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
+  const [showFeedbackInput, setShowFeedbackInput] = useState(false);
+  const [feedbackNote, setFeedbackNote] = useState("");
+  const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent">("idle");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, currentToolCalls]);
 
+  // Auto-hide feedback confirmation after 3s
+  useEffect(() => {
+    if (feedbackStatus === "sent") {
+      const timer = setTimeout(() => {
+        setFeedbackStatus("idle");
+        setShowFeedbackInput(false);
+        setFeedbackNote("");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [feedbackStatus]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
     onSendMessage(input.trim());
     setInput("");
+  };
+
+  const handleFeedbackSubmit = async () => {
+    if (!onFeedback) return;
+    setFeedbackStatus("sending");
+    try {
+      await onFeedback(feedbackNote || undefined);
+      setFeedbackStatus("sent");
+    } catch {
+      setFeedbackStatus("idle");
+    }
   };
 
   return (
@@ -109,6 +137,50 @@ export function ChatPanel({
                     />
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Feedback section */}
+            {messages.length > 0 && !isLoading && onFeedback && (
+              <div className="mt-2 mb-4">
+                {feedbackStatus === "sent" ? (
+                  <p className="text-xs text-amber-400">Feedback recorded — thank you.</p>
+                ) : showFeedbackInput ? (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      type="text"
+                      value={feedbackNote}
+                      onChange={(e) => setFeedbackNote(e.target.value)}
+                      placeholder="What felt wrong? (optional)"
+                      className="bg-gray-800 border border-amber-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleFeedbackSubmit}
+                        disabled={feedbackStatus === "sending"}
+                        className="text-xs px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 transition-colors"
+                      >
+                        {feedbackStatus === "sending" ? "Sending..." : "Submit"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowFeedbackInput(false);
+                          setFeedbackNote("");
+                        }}
+                        className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowFeedbackInput(true)}
+                    className="text-xs text-amber-500 hover:text-amber-400 transition-colors"
+                  >
+                    Something feels wrong
+                  </button>
+                )}
               </div>
             )}
           </>

@@ -2,9 +2,9 @@
 
 import { useState, useCallback, useRef } from "react";
 import { ChatMessage, ToolCallInfo } from "@/lib/types";
-import { connectChat } from "@/lib/api";
+import { connectChat, submitFeedback } from "@/lib/api";
 
-export function useChat() {
+export function useChat(calculatorState?: Record<string, unknown> | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentToolCalls, setCurrentToolCalls] = useState<ToolCallInfo[]>([]);
@@ -20,73 +20,78 @@ export function useChat() {
       let assistantText = "";
       const toolCalls: ToolCallInfo[] = [];
 
-      const cancel = connectChat(content, messages, {
-        onText: (text) => {
-          assistantText += text;
-          setMessages((prev) => {
-            const updated = [...prev];
-            const lastIdx = updated.length - 1;
-            if (lastIdx >= 0 && updated[lastIdx].role === "assistant") {
-              updated[lastIdx] = {
-                ...updated[lastIdx],
-                content: assistantText,
-              };
-            } else {
-              updated.push({
-                role: "assistant",
-                content: assistantText,
-                toolCalls,
-              });
-            }
-            return updated;
-          });
+      const cancel = connectChat(
+        content,
+        messages,
+        {
+          onText: (text) => {
+            assistantText += text;
+            setMessages((prev) => {
+              const updated = [...prev];
+              const lastIdx = updated.length - 1;
+              if (lastIdx >= 0 && updated[lastIdx].role === "assistant") {
+                updated[lastIdx] = {
+                  ...updated[lastIdx],
+                  content: assistantText,
+                };
+              } else {
+                updated.push({
+                  role: "assistant",
+                  content: assistantText,
+                  toolCalls,
+                });
+              }
+              return updated;
+            });
+          },
+          onToolStart: (name, args) => {
+            const tc: ToolCallInfo = { name, arguments: args };
+            toolCalls.push(tc);
+            setCurrentToolCalls([...toolCalls]);
+          },
+          onToolResult: (name, result) => {
+            const tc = toolCalls.find(
+              (t) => t.name === name && !t.result
+            );
+            if (tc) tc.result = result;
+            setCurrentToolCalls([...toolCalls]);
+          },
+          onDone: () => {
+            setIsLoading(false);
+            setMessages((prev) => {
+              const updated = [...prev];
+              const lastIdx = updated.length - 1;
+              if (lastIdx >= 0 && updated[lastIdx].role === "assistant") {
+                updated[lastIdx] = {
+                  ...updated[lastIdx],
+                  content: assistantText,
+                  toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+                };
+              } else if (assistantText || toolCalls.length > 0) {
+                updated.push({
+                  role: "assistant",
+                  content: assistantText,
+                  toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+                });
+              }
+              return updated;
+            });
+            setCurrentToolCalls([]);
+          },
+          onError: (error) => {
+            setIsLoading(false);
+            setMessages((prev) => [
+              ...prev,
+              { role: "assistant", content: `Error: ${error}` },
+            ]);
+          },
         },
-        onToolStart: (name, args) => {
-          const tc: ToolCallInfo = { name, arguments: args };
-          toolCalls.push(tc);
-          setCurrentToolCalls([...toolCalls]);
-        },
-        onToolResult: (name, result) => {
-          const tc = toolCalls.find(
-            (t) => t.name === name && !t.result
-          );
-          if (tc) tc.result = result;
-          setCurrentToolCalls([...toolCalls]);
-        },
-        onDone: () => {
-          setIsLoading(false);
-          setMessages((prev) => {
-            const updated = [...prev];
-            const lastIdx = updated.length - 1;
-            if (lastIdx >= 0 && updated[lastIdx].role === "assistant") {
-              updated[lastIdx] = {
-                ...updated[lastIdx],
-                content: assistantText,
-                toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-              };
-            } else if (assistantText || toolCalls.length > 0) {
-              updated.push({
-                role: "assistant",
-                content: assistantText,
-                toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-              });
-            }
-            return updated;
-          });
-          setCurrentToolCalls([]);
-        },
-        onError: (error) => {
-          setIsLoading(false);
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: `Error: ${error}` },
-          ]);
-        },
-      });
+        calculatorState
+      );
 
       cancelRef.current = cancel;
     },
-    [messages]
+    [messages, calculatorState]
   );
 
   const cancel = useCallback(() => {
@@ -99,6 +104,13 @@ export function useChat() {
     setCurrentToolCalls([]);
   }, []);
 
+  const sendFeedback = useCallback(
+    async (note?: string) => {
+      return submitFeedback(calculatorState ?? null, messages, note);
+    },
+    [calculatorState, messages]
+  );
+
   return {
     messages,
     setMessages,
@@ -107,5 +119,6 @@ export function useChat() {
     cancel,
     clearMessages,
     currentToolCalls,
+    sendFeedback,
   };
 }

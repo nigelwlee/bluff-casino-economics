@@ -49,6 +49,7 @@ class VIPCompanyImpactRequest(BaseModel):
     vip_bonus_pct: float = Field(default=0.55, ge=0, le=1)
     non_vip_bonus_pct: float = Field(default=0.292, ge=0, le=1)
     vip_ggr_rate: float | None = None
+    vip_deposit_match_cost: float = 0.0
     num_months: int = Field(default=12, ge=1, le=60)
     growth_rate: float | None = None
     overrides: dict[str, Any] | None = None
@@ -84,6 +85,16 @@ class ChatRequest(BaseModel):
     message: str
     history: list[ChatMessage] = Field(default_factory=list)
     scenario_id: str | None = None
+    calculator_state: dict[str, Any] | None = None
+
+
+# ─── Feedback Schemas ──────────────────────────────────────────────────────
+
+
+class FeedbackRequest(BaseModel):
+    calculator_state: dict[str, Any] | None = None
+    chat_history: list[ChatMessage] = Field(default_factory=list)
+    user_note: str | None = None
 
 
 # ─── Scenario Schemas ───────────────────────────────────────────────────────

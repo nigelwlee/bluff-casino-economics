@@ -28,7 +28,19 @@ interface VIPResult {
   ngr_before_promos: number;
   affiliate_cost: number;
   ngr_after_affiliate: number;
-  promos: { total: number };
+  promos: {
+    deposit_match: number;
+    deposit_match_detail?: {
+      deposit: number;
+      bonus_pct: number;
+      raw_bonus: number;
+      house_recoup: number;
+      effective_cost: number;
+      max_bet: number;
+      max_win_mult: number;
+    } | null;
+    total: number;
+  };
   ngr_after_promos: number;
   margins: {
     ggr_pct_of_nominal: number;
@@ -61,6 +73,7 @@ interface CompanyMonth {
     sportsbook_total: number;
     total: number;
   };
+  deposit_match_cost: number;
   ngr: number;
   ngr_pct_ggr: number;
   channel_costs: {
@@ -220,13 +233,26 @@ export function PLSummary({
           { category: "sportsbook", share: SPORTSBOOK_SHARE, rtp: sportsbookRtp, edge: sportsbookEdge, adj_factor: 1.0 },
         ];
 
+        const depositMatchAssumptions = state.depositMatch?.enabled
+          ? {
+              deposit_match_enabled: true,
+              deposit_match_deposit: state.depositMatch.deposit,
+              deposit_match_bonus_pct: state.depositMatch.bonusPct,
+              deposit_match_max_bonus: state.depositMatch.maxBonus,
+              deposit_match_wager_req: state.depositMatch.wagerReq,
+              deposit_match_house_edge: state.depositMatch.houseEdge,
+              deposit_match_max_bet: state.depositMatch.maxBet,
+              deposit_match_max_win_mult: state.depositMatch.maxWinMult,
+            }
+          : {};
+
         const vipRes = await fetch(`${API_BASE}/calc/vip`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             nominal_volume: state.monthlyVolume,
             wager_mix: wagerMix,
-            assumptions: state.bonuses,
+            assumptions: { ...state.bonuses, ...depositMatchAssumptions },
           }),
         });
         if (!vipRes.ok) throw new Error(`VIP calc error: ${vipRes.status}`);
@@ -241,6 +267,10 @@ export function PLSummary({
           ? state.monthlyVolume / state.company.companyMonthlyWagers
           : 0;
 
+        const vipDepositMatchCost = vipData.promos.deposit_match_detail
+          ? vipData.promos.deposit_match_detail.effective_cost
+          : 0;
+
         const companyRes = await fetch(`${API_BASE}/calc/company-pl/vip-impact`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -250,6 +280,7 @@ export function PLSummary({
             vip_bonus_pct: vipBonusPct,
             non_vip_bonus_pct: state.company.nonVipBonusPct,
             vip_ggr_rate: 1 - state.effectiveRtp,
+            vip_deposit_match_cost: vipDepositMatchCost,
             num_months: 1,
             overrides: {
               opex_overrides: { total_opex: state.company.monthlyOpex },
@@ -363,8 +394,11 @@ export function PLSummary({
             <PLRow label="NGR (before promos)" value={vipResult.ngr_before_promos} bold />
             <PLRow label="Affiliate Cost" value={vipResult.affiliate_cost} indent highlight="red" pctValue={pct(state.bonuses.affiliate_pct)} />
             <PLRow label="NGR (after affiliate)" value={vipResult.ngr_after_affiliate} bold />
-            {vipResult.promos.total !== 0 && (
-              <PLRow label="Additional Promos" value={vipResult.promos.total} indent highlight="red" />
+            {vipResult.promos.deposit_match !== 0 && (
+              <PLRow label="Deposit Match" value={vipResult.promos.deposit_match} indent highlight="red" />
+            )}
+            {(vipResult.promos.total - vipResult.promos.deposit_match) !== 0 && (
+              <PLRow label="Other Promos" value={vipResult.promos.total - vipResult.promos.deposit_match} indent highlight="red" />
             )}
             <PLRow
               label="Final NGR"
@@ -459,6 +493,9 @@ export function PLSummary({
 
               {/* Bonuses */}
               <PLRow label="Bonuses" value={companyMonth1.bonuses} bold highlight="red" pctValue={pct(companyMonth1.bonus_pct)} />
+              {companyMonth1.deposit_match_cost !== 0 && (
+                <PLRow label="Deposit Match Cost" value={companyMonth1.deposit_match_cost} indent highlight="red" />
+              )}
 
               {/* Ops Costs */}
               <div className="py-1">

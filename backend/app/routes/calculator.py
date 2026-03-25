@@ -65,6 +65,7 @@ async def calc_vip_impact(req: VIPCompanyImpactRequest):
         vip_bonus_pct=req.vip_bonus_pct,
         non_vip_bonus_pct=req.non_vip_bonus_pct,
         vip_ggr_rate=req.vip_ggr_rate,
+        vip_deposit_match_cost=req.vip_deposit_match_cost,
         num_months=req.num_months,
         growth_rate=req.growth_rate,
         overrides=req.overrides,

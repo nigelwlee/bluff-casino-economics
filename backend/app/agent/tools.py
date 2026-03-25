@@ -32,7 +32,7 @@ TOOL_DEFINITIONS = [
                 },
                 "assumptions": {
                     "type": "object",
-                    "description": "Override default promo/cost assumptions. Keys: casino_ops_pct, sportsbook_ops_pct, affiliate_pct, level_up_pct, reload_pct, weekly_pct, monthly_pct, lossback_standard_pct, lossback_discretionary_pct.",
+                    "description": "Override default promo/cost assumptions. Keys: casino_ops_pct, sportsbook_ops_pct, affiliate_pct, level_up_pct, reload_pct, weekly_pct, monthly_pct, lossback_standard_pct, lossback_discretionary_pct, deposit_match_enabled, deposit_match_deposit, deposit_match_bonus_pct, deposit_match_max_bonus, deposit_match_wager_req, deposit_match_house_edge.",
                     "properties": {
                         "casino_ops_pct": {"type": "number"},
                         "sportsbook_ops_pct": {"type": "number"},
@@ -43,6 +43,12 @@ TOOL_DEFINITIONS = [
                         "monthly_pct": {"type": "number"},
                         "lossback_standard_pct": {"type": "number"},
                         "lossback_discretionary_pct": {"type": "number"},
+                        "deposit_match_enabled": {"type": "boolean", "description": "Enable deposit match promo."},
+                        "deposit_match_deposit": {"type": "number", "description": "Fixed monthly deposit amount ($)."},
+                        "deposit_match_bonus_pct": {"type": "number", "description": "Match percentage (1.0 = 100%)."},
+                        "deposit_match_max_bonus": {"type": "number", "description": "Cap on bonus paid (0 = no cap)."},
+                        "deposit_match_wager_req": {"type": "number", "description": "Rollover multiplier (e.g. 20 = 20x)."},
+                        "deposit_match_house_edge": {"type": "number", "description": "House edge during rollover (e.g. 0.02 = 2%)."},
                     },
                 },
             },
@@ -154,6 +160,11 @@ TOOL_DEFINITIONS = [
                     "description": "Bonus rate for non-VIP players. Default 0.292.",
                     "default": 0.292,
                 },
+                "vip_deposit_match_cost": {
+                    "type": "number",
+                    "description": "VIP deposit match effective cost to deduct from company NGR. Default 0.",
+                    "default": 0,
+                },
                 "num_months": {
                     "type": "integer",
                     "description": "Projection length. Default 12.",
@@ -210,6 +221,7 @@ def execute_tool(tool_name: str, arguments: dict) -> dict:
             vip_pct_of_total=arguments.get("vip_pct_of_total", 0.70),
             vip_bonus_pct=arguments.get("vip_bonus_pct", 0.55),
             non_vip_bonus_pct=arguments.get("non_vip_bonus_pct", 0.292),
+            vip_deposit_match_cost=arguments.get("vip_deposit_match_cost", 0.0),
             num_months=arguments.get("num_months", 12),
             growth_rate=arguments.get("growth_rate"),
             overrides=arguments.get("overrides"),

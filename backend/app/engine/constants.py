@@ -41,10 +41,13 @@ DEFAULT_PROMO_ASSUMPTIONS = {
     "lossback_discretionary_pct": 0.00,
     # Deposit match promo
     "deposit_match_enabled": False,
-    "deposit_match_max": 0.0,
-    "deposit_match_pct": 0.02,
-    "deposit_match_rollover": 20,
-    "deposit_to_wager_ratio": 8,
+    "deposit_match_deposit": 0.0,        # Fixed monthly deposit amount ($)
+    "deposit_match_bonus_pct": 1.0,      # Match percentage (1.0 = 100%)
+    "deposit_match_max_bonus": 0.0,      # Cap on bonus paid (0 = no cap)
+    "deposit_match_wager_req": 20.0,     # Rollover multiplier (Xx)
+    "deposit_match_house_edge": 0.02,    # House edge during rollover
+    "deposit_match_max_bet": 0.0,        # Max bet during rollover (metadata)
+    "deposit_match_max_win_mult": 0.0,   # Max win multiplier (metadata)
     # Wager milestone promo
     "wager_milestone_target": 500_000,
     "wager_milestone_type": "Nominal",  # "Nominal" or "Weighted"

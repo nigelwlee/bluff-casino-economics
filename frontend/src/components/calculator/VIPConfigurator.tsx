@@ -20,11 +20,23 @@ export interface CompanyAssumptions {
   monthlyOpex: number;
 }
 
+export interface DepositMatchParams {
+  enabled: boolean;
+  deposit: number;
+  bonusPct: number;
+  maxBonus: number;
+  wagerReq: number;
+  houseEdge: number;
+  maxBet: number;
+  maxWinMult: number;
+}
+
 export interface CalculatorState {
   monthlyVolume: number;
   effectiveRtp: number;
   bonuses: BonusAssumptions;
   company: CompanyAssumptions;
+  depositMatch: DepositMatchParams;
 }
 
 const DEFAULT_BONUSES: BonusAssumptions = {
@@ -145,6 +157,16 @@ export function VIPConfigurator({
     nonVipBonusPct: 0.292,
     monthlyOpex: 1_000_000,
   });
+  const [depositMatch, setDepositMatch] = useState<DepositMatchParams>({
+    enabled: false,
+    deposit: 0,
+    bonusPct: 1.0,
+    maxBonus: 0,
+    wagerReq: 20,
+    houseEdge: 0.02,
+    maxBet: 0,
+    maxWinMult: 0,
+  });
 
   // Apply external volume updates (e.g. from breakeven goal seek)
   useEffect(() => {
@@ -156,8 +178,8 @@ export function VIPConfigurator({
   }, [externalVolumes, onExternalApplied]);
 
   const emitChange = useCallback(() => {
-    onChange({ monthlyVolume, effectiveRtp, bonuses, company });
-  }, [monthlyVolume, effectiveRtp, bonuses, company, onChange]);
+    onChange({ monthlyVolume, effectiveRtp, bonuses, company, depositMatch });
+  }, [monthlyVolume, effectiveRtp, bonuses, company, depositMatch, onChange]);
 
   useEffect(() => {
     emitChange();
@@ -226,6 +248,117 @@ export function VIPConfigurator({
           <PctInput label="Casino Ops" value={bonuses.casino_ops_pct} onChange={(v) => updateBonus("casino_ops_pct", v)} />
           <PctInput label="Sportsbook Ops" value={bonuses.sportsbook_ops_pct} onChange={(v) => updateBonus("sportsbook_ops_pct", v)} />
           <PctInput label="Affiliate Cost" value={bonuses.affiliate_pct} onChange={(v) => updateBonus("affiliate_pct", v)} />
+        </div>
+      </div>
+
+      {/* Deposit Match Promo */}
+      <div>
+        <h3 className="text-sm font-semibold text-white mb-3">Deposit Match Promo</h3>
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-gray-400">Enable Deposit Match</label>
+            <button
+              onClick={() => setDepositMatch((d) => ({ ...d, enabled: !d.enabled }))}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                depositMatch.enabled ? "bg-blue-600" : "bg-gray-600"
+              }`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                  depositMatch.enabled ? "translate-x-4.5" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+          {depositMatch.enabled && (
+            <>
+              <MoneyInput
+                label="Monthly Deposit"
+                value={depositMatch.deposit}
+                onChange={(v) => setDepositMatch((d) => ({ ...d, deposit: v }))}
+              />
+              <PctInput
+                label="Match %"
+                value={depositMatch.bonusPct}
+                onChange={(v) => setDepositMatch((d) => ({ ...d, bonusPct: v }))}
+              />
+              <MoneyInput
+                label="Max Bonus (0 = no cap)"
+                value={depositMatch.maxBonus}
+                onChange={(v) => setDepositMatch((d) => ({ ...d, maxBonus: v }))}
+              />
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-gray-400">Wager Requirement</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={depositMatch.wagerReq}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v)) setDepositMatch((d) => ({ ...d, wagerReq: v }));
+                    }}
+                    step={1}
+                    min={0}
+                    className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white font-mono w-20 text-right focus:border-blue-500 focus:outline-none"
+                  />
+                  <span className="text-xs text-gray-500">x</span>
+                </div>
+              </div>
+              <PctInput
+                label="House Edge (rollover)"
+                value={depositMatch.houseEdge}
+                onChange={(v) => setDepositMatch((d) => ({ ...d, houseEdge: v }))}
+              />
+              <div className="border-t border-gray-700 pt-2 space-y-2">
+                <div className="text-xs text-gray-600 font-semibold">Metadata (display only)</div>
+                <MoneyInput
+                  label="Max Bet"
+                  value={depositMatch.maxBet}
+                  onChange={(v) => setDepositMatch((d) => ({ ...d, maxBet: v }))}
+                />
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-gray-400">Max Win Multiplier</label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      value={depositMatch.maxWinMult}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (!isNaN(v)) setDepositMatch((d) => ({ ...d, maxWinMult: v }));
+                      }}
+                      step={1}
+                      min={0}
+                      className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white font-mono w-20 text-right focus:border-blue-500 focus:outline-none"
+                    />
+                    <span className="text-xs text-gray-500">x</span>
+                  </div>
+                </div>
+              </div>
+              {/* Live effective cost preview */}
+              {depositMatch.deposit > 0 && (() => {
+                let rawBonus = depositMatch.deposit * depositMatch.bonusPct;
+                if (depositMatch.maxBonus > 0) rawBonus = Math.min(rawBonus, depositMatch.maxBonus);
+                const recoup = rawBonus * depositMatch.wagerReq * depositMatch.houseEdge;
+                const effectiveCost = Math.max(0, rawBonus - recoup);
+                return (
+                  <div className="border-t border-gray-700 pt-2 space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Raw Bonus</span>
+                      <span className="text-white font-mono">${rawBonus.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">House Recoup ({depositMatch.wagerReq}x x {(depositMatch.houseEdge * 100).toFixed(1)}%)</span>
+                      <span className="text-green-400 font-mono">-${recoup.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-semibold">
+                      <span className="text-gray-300">Effective Cost</span>
+                      <span className="text-yellow-400 font-mono">${effectiveCost.toLocaleString()}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
+          )}
         </div>
       </div>
 

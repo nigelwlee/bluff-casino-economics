@@ -28,8 +28,6 @@ export interface DepositMatchParams {
   maxBonus: number;
   wagerReq: number;
   houseEdge: number;
-  maxBet: number;
-  maxWinMult: number;
 }
 
 export interface CalculatorState {
@@ -150,7 +148,7 @@ export function VIPConfigurator({
   externalVolumes?: { vipWagers: number; companyWagers: number } | null;
   onExternalApplied?: () => void;
 }) {
-  const [monthlyVolume, setMonthlyVolume] = useState(80_000_000);
+  const [monthlyVolume, setMonthlyVolume] = useState(5_000_000);
   const [effectiveRtp, setEffectiveRtp] = useState(0.9838);
   const [bonuses, setBonuses] = useState<BonusAssumptions>(DEFAULT_BONUSES);
   const [company, setCompany] = useState<CompanyAssumptions>({
@@ -166,8 +164,6 @@ export function VIPConfigurator({
     maxBonus: 0,
     wagerReq: 20,
     houseEdge: 0.02,
-    maxBet: 0,
-    maxWinMult: 0,
   });
 
   // Apply external volume updates (e.g. from breakeven goal seek)
@@ -289,7 +285,7 @@ export function VIPConfigurator({
                 onChange={(v) => setDepositMatch((d) => ({ ...d, maxBonus: v }))}
               />
               <div className="flex items-center justify-between">
-                <label className="text-xs text-gray-400">Wager Requirement</label>
+                <label className="text-xs text-gray-400">Wager Req (on deposit + bonus)</label>
                 <div className="flex items-center gap-1">
                   <input
                     type="number"
@@ -310,31 +306,6 @@ export function VIPConfigurator({
                 value={depositMatch.houseEdge}
                 onChange={(v) => setDepositMatch((d) => ({ ...d, houseEdge: v }))}
               />
-              <div className="border-t border-gray-700 pt-2 space-y-2">
-                <div className="text-xs text-gray-600 font-semibold">Metadata (display only)</div>
-                <MoneyInput
-                  label="Max Bet"
-                  value={depositMatch.maxBet}
-                  onChange={(v) => setDepositMatch((d) => ({ ...d, maxBet: v }))}
-                />
-                <div className="flex items-center justify-between">
-                  <label className="text-xs text-gray-400">Max Win Multiplier</label>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      value={depositMatch.maxWinMult}
-                      onChange={(e) => {
-                        const v = parseFloat(e.target.value);
-                        if (!isNaN(v)) setDepositMatch((d) => ({ ...d, maxWinMult: v }));
-                      }}
-                      step={1}
-                      min={0}
-                      className="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-white font-mono w-20 text-right focus:border-blue-500 focus:outline-none"
-                    />
-                    <span className="text-xs text-gray-500">x</span>
-                  </div>
-                </div>
-              </div>
               {/* Live effective cost preview */}
               {depositMatch.deposit > 0 && (() => {
                 let rawBonus = depositMatch.deposit * depositMatch.bonusPct;

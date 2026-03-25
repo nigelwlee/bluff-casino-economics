@@ -241,8 +241,6 @@ export function PLSummary({
               deposit_match_max_bonus: state.depositMatch.maxBonus,
               deposit_match_wager_req: state.depositMatch.wagerReq,
               deposit_match_house_edge: state.depositMatch.houseEdge,
-              deposit_match_max_bet: state.depositMatch.maxBet,
-              deposit_match_max_win_mult: state.depositMatch.maxWinMult,
             }
           : {};
 
@@ -265,9 +263,13 @@ export function PLSummary({
 
         const companyVipPct = state.company.vipPctOfTotal;
 
-        const vipDepositMatchCost = vipData.promos.deposit_match_detail
+        // Scale single-player deposit match cost pro-rata to full VIP segment
+        const singlePlayerDepositMatchCost = vipData.promos.deposit_match_detail
           ? vipData.promos.deposit_match_detail.effective_cost
           : 0;
+        const companyVipWagers = state.company.companyMonthlyWagers * state.company.vipPctOfTotal;
+        const scaleFactor = state.monthlyVolume > 0 ? companyVipWagers / state.monthlyVolume : 0;
+        const vipDepositMatchCost = singlePlayerDepositMatchCost * scaleFactor;
 
         const companyRes = await fetch(`${API_BASE}/calc/company-pl/vip-impact`, {
           method: "POST",

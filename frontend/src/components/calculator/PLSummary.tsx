@@ -209,6 +209,7 @@ export function PLSummary({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [loadingSeconds, setLoadingSeconds] = useState(0);
 
   useEffect(() => {
     if (!state || state.monthlyVolume <= 0) {
@@ -302,6 +303,13 @@ export function PLSummary({
     };
   }, [state]);
 
+  // Track how long we've been loading to show cold-start message
+  useEffect(() => {
+    if (!loading) { setLoadingSeconds(0); return; }
+    const interval = setInterval(() => setLoadingSeconds((s) => s + 1), 1000);
+    return () => clearInterval(interval);
+  }, [loading]);
+
   if (!state) {
     return (
       <div className="flex items-center justify-center h-full text-gray-600 text-sm">
@@ -309,14 +317,6 @@ export function PLSummary({
       </div>
     );
   }
-
-  // Track how long we've been loading to show cold-start message
-  const [loadingSeconds, setLoadingSeconds] = useState(0);
-  useEffect(() => {
-    if (!loading) { setLoadingSeconds(0); return; }
-    const interval = setInterval(() => setLoadingSeconds((s) => s + 1), 1000);
-    return () => clearInterval(interval);
-  }, [loading]);
 
   if (loading && !vipResult) {
     return (

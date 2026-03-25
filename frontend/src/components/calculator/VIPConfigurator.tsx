@@ -52,6 +52,26 @@ const DEFAULT_BONUSES: BonusAssumptions = {
 
 const DEFAULT_MONTHLY_OPEX = 1_045_116;
 
+const STORAGE_KEY = "bluff-calculator-defaults";
+
+interface SavedDefaults {
+  monthlyVolume: number;
+  effectiveRtp: number;
+  bonuses: BonusAssumptions;
+  company: CompanyAssumptions;
+  depositMatch: DepositMatchParams;
+}
+
+function loadDefaults(): SavedDefaults | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as SavedDefaults;
+  } catch {
+    return null;
+  }
+}
+
 function formatNumberWithCommas(value: number): string {
   return value.toLocaleString("en-US");
 }
@@ -148,16 +168,17 @@ export function VIPConfigurator({
   externalVolumes?: { vipWagers: number; companyWagers: number } | null;
   onExternalApplied?: () => void;
 }) {
-  const [monthlyVolume, setMonthlyVolume] = useState(5_000_000);
-  const [effectiveRtp, setEffectiveRtp] = useState(0.9838);
-  const [bonuses, setBonuses] = useState<BonusAssumptions>(DEFAULT_BONUSES);
-  const [company, setCompany] = useState<CompanyAssumptions>({
+  const [saved] = useState<SavedDefaults | null>(() => loadDefaults());
+  const [monthlyVolume, setMonthlyVolume] = useState(saved?.monthlyVolume ?? 5_000_000);
+  const [effectiveRtp, setEffectiveRtp] = useState(saved?.effectiveRtp ?? 0.9838);
+  const [bonuses, setBonuses] = useState<BonusAssumptions>(saved?.bonuses ?? DEFAULT_BONUSES);
+  const [company, setCompany] = useState<CompanyAssumptions>(saved?.company ?? {
     companyMonthlyWagers: 100_000_000,
     vipPctOfTotal: 0.80,
     nonVipBonusPct: 0.292,
     monthlyOpex: 1_000_000,
   });
-  const [depositMatch, setDepositMatch] = useState<DepositMatchParams>({
+  const [depositMatch, setDepositMatch] = useState<DepositMatchParams>(saved?.depositMatch ?? {
     enabled: false,
     deposit: 0,
     bonusPct: 1.0,
@@ -165,6 +186,7 @@ export function VIPConfigurator({
     wagerReq: 20,
     houseEdge: 0.02,
   });
+  const [saveFlash, setSaveFlash] = useState(false);
 
   // Apply external volume updates (e.g. from breakeven goal seek)
   useEffect(() => {
@@ -405,6 +427,19 @@ export function VIPConfigurator({
           </div>
         </div>
       </div>
+
+      {/* Save Defaults */}
+      <button
+        onClick={() => {
+          const defaults: SavedDefaults = { monthlyVolume, effectiveRtp, bonuses, company, depositMatch };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
+          setSaveFlash(true);
+          setTimeout(() => setSaveFlash(false), 2000);
+        }}
+        className="w-full text-xs px-3 py-2 rounded-lg border border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white transition-colors"
+      >
+        {saveFlash ? "Saved!" : "Save as Default"}
+      </button>
     </div>
   );
 }

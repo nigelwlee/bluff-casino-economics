@@ -273,7 +273,7 @@ export function PLSummary({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            vip_monthly_wagers: state.monthlyVolume,
+            vip_monthly_wagers: state.company.companyMonthlyWagers * state.company.vipPctOfTotal,
             vip_pct_of_total: companyVipPct,
             vip_bonus_pct: vipBonusPct,
             non_vip_bonus_pct: state.company.nonVipBonusPct,

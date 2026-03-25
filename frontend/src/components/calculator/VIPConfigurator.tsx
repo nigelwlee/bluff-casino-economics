@@ -16,6 +16,7 @@ interface BonusAssumptions {
 
 export interface CompanyAssumptions {
   companyMonthlyWagers: number;
+  vipPctOfTotal: number;
   nonVipBonusPct: number;
   monthlyOpex: number;
 }
@@ -154,6 +155,7 @@ export function VIPConfigurator({
   const [bonuses, setBonuses] = useState<BonusAssumptions>(DEFAULT_BONUSES);
   const [company, setCompany] = useState<CompanyAssumptions>({
     companyMonthlyWagers: 100_000_000,
+    vipPctOfTotal: 0.80,
     nonVipBonusPct: 0.292,
     monthlyOpex: 1_000_000,
   });
@@ -198,9 +200,7 @@ export function VIPConfigurator({
     + bonuses.monthly_pct + bonuses.lossback_standard_pct + bonuses.lossback_discretionary_pct;
   const vipGgrRate = 1 - effectiveRtp;
   const companyGgrRate = 0.0248;
-  const vipPctOfTotal = company.companyMonthlyWagers > 0
-    ? monthlyVolume / company.companyMonthlyWagers
-    : 0;
+  const vipPctOfTotal = company.vipPctOfTotal;
   const nonVipPct = 1 - vipPctOfTotal;
   const blendedBonusPct = (vipPctOfTotal * vipBonusPct) + (nonVipPct * company.nonVipBonusPct);
 
@@ -211,10 +211,11 @@ export function VIPConfigurator({
         <h3 className="text-sm font-semibold text-white mb-3">VIP Assumptions</h3>
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
           <MoneyInput
-            label="Total Monthly Wager Volume from VIPs"
+            label="Monthly Wager Volume"
             value={monthlyVolume}
             onChange={setMonthlyVolume}
           />
+          <div className="text-xs text-gray-500">Simulate one VIP player</div>
           <PctInput
             label="Effective RTP"
             value={effectiveRtp}
@@ -372,6 +373,11 @@ export function VIPConfigurator({
             label="Total Company Wagers / Month"
             value={company.companyMonthlyWagers}
             onChange={(v) => updateCompany("companyMonthlyWagers", v)}
+          />
+          <PctInput
+            label="VIP % of Total Volume"
+            value={company.vipPctOfTotal}
+            onChange={(v) => updateCompany("vipPctOfTotal", v)}
           />
 
           <div className="border-t border-gray-700 pt-3 mt-3">

@@ -263,9 +263,7 @@ export function PLSummary({
           ? Math.abs(vipData.bonuses.total) / vipData.ggr
           : 0;
 
-        const companyVipPct = state.company.companyMonthlyWagers > 0
-          ? state.monthlyVolume / state.company.companyMonthlyWagers
-          : 0;
+        const companyVipPct = state.company.vipPctOfTotal;
 
         const vipDepositMatchCost = vipData.promos.deposit_match_detail
           ? vipData.promos.deposit_match_detail.effective_cost
@@ -333,9 +331,7 @@ export function PLSummary({
     : 0;
   const ggrRate = 1 - state.effectiveRtp;
   const companyMonth1 = companyResult?.projection.months[0];
-  const companyVipPct = state.company.companyMonthlyWagers > 0
-    ? state.monthlyVolume / state.company.companyMonthlyWagers
-    : 0;
+  const companyVipPct = state.company.vipPctOfTotal;
 
   return (
     <div className="space-y-6">

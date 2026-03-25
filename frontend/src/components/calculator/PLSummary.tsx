@@ -310,10 +310,21 @@ export function PLSummary({
     );
   }
 
+  // Track how long we've been loading to show cold-start message
+  const [loadingSeconds, setLoadingSeconds] = useState(0);
+  useEffect(() => {
+    if (!loading) { setLoadingSeconds(0); return; }
+    const interval = setInterval(() => setLoadingSeconds((s) => s + 1), 1000);
+    return () => clearInterval(interval);
+  }, [loading]);
+
   if (loading && !vipResult) {
     return (
-      <div className="flex items-center justify-center h-32 text-gray-500 text-sm">
-        Calculating...
+      <div className="flex flex-col items-center justify-center h-32 text-gray-500 text-sm gap-2">
+        <div>Calculating...</div>
+        {loadingSeconds >= 3 && (
+          <div className="text-xs text-gray-600">Backend is waking up, this can take up to 30s...</div>
+        )}
       </div>
     );
   }

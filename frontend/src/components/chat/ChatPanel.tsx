@@ -16,10 +16,12 @@ interface ChatPanelProps {
 }
 
 const EXAMPLE_QUESTIONS = [
-  "What's the Whale P&L with current defaults?",
-  "What if we give 10% lossback to Dolphins instead of 30%?",
-  "Show me 12-month P&L at $100M monthly wagers",
-  "If 80% of volume is Whales with 55% bonus rate, when do we break even?",
+  "How much lossback can I offer before this player becomes unprofitable?",
+  "Which VIP tier generates the most NGR per dollar of bonus spent?",
+  "What monthly volume do we need to cover $1M OPEX?",
+  "How does breakeven shift if we cut bonuses by 5% across the board?",
+  "What happens to margins if 90% of volume comes from Whales?",
+  "Compare our P&L at $50M vs $200M monthly wagers",
 ];
 
 export function ChatPanel({

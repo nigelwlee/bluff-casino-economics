@@ -1,5 +1,6 @@
 "use client";
 
+import ReactMarkdown from "react-markdown";
 import { ChatMessage } from "@/lib/types";
 import { ToolCallCard } from "./ToolCallCard";
 
@@ -22,9 +23,15 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
             ))}
           </div>
         )}
-        <div className="whitespace-pre-wrap text-sm leading-relaxed">
-          {message.content}
-        </div>
+        {isUser ? (
+          <div className="whitespace-pre-wrap text-sm leading-relaxed">
+            {message.content}
+          </div>
+        ) : (
+          <div className="text-sm leading-relaxed prose prose-invert prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-strong:text-white prose-code:text-amber-300 prose-code:bg-gray-900 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs">
+            <ReactMarkdown>{message.content}</ReactMarkdown>
+          </div>
+        )}
       </div>
     </div>
   );

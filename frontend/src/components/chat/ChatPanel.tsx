@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { ChatMessage } from "@/lib/types";
 import { MessageBubble } from "./MessageBubble";
 import { ToolCallCard } from "./ToolCallCard";
@@ -34,11 +34,18 @@ export function ChatPanel({
   const [showFeedbackInput, setShowFeedbackInput] = useState(false);
   const [feedbackNote, setFeedbackNote] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "sending" | "sent">("idle");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, currentToolCalls]);
+    scrollToBottom();
+  }, [messages, currentToolCalls, scrollToBottom]);
 
   // Auto-hide feedback confirmation after 3s
   useEffect(() => {
@@ -88,7 +95,7 @@ export function ChatPanel({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <h3 className="text-xl font-semibold text-gray-300 mb-2">
@@ -186,7 +193,6 @@ export function ChatPanel({
             )}
           </>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}

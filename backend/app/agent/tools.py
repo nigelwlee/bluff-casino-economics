@@ -207,6 +207,29 @@ TOOL_DEFINITIONS = [
 ]
 
 
+# ─── Percentage Normalization ──────────────────────────────────────────────
+
+# Fields that should be 0-1 decimals, not 0-100 whole numbers
+_PCT_FIELDS = {
+    "casino_ops_pct", "sportsbook_ops_pct", "affiliate_pct",
+    "level_up_pct", "reload_pct", "weekly_pct", "monthly_pct",
+    "lossback_standard_pct", "lossback_discretionary_pct",
+    "deposit_match_bonus_pct", "deposit_match_house_edge",
+    "vip_pct_of_total", "vip_bonus_pct", "non_vip_bonus_pct",
+    "bonus_pct",
+}
+
+
+def _normalize_pcts(d: dict) -> dict:
+    """Normalize percentage fields > 1 to decimal (40 → 0.40)."""
+    for key, val in list(d.items()):
+        if key in _PCT_FIELDS and isinstance(val, (int, float)) and val > 1:
+            d[key] = val / 100
+        elif isinstance(val, dict):
+            _normalize_pcts(val)
+    return d
+
+
 # ─── Calculator State Merging ──────────────────────────────────────────────
 
 def _merge_calculator_defaults(
@@ -309,6 +332,7 @@ def _merge_calculator_defaults(
         if opex and "monthly_opex" not in overrides:
             overrides["monthly_opex"] = opex
 
+    _normalize_pcts(merged)
     return merged
 
 

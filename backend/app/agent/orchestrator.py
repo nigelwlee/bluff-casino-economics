@@ -91,7 +91,7 @@ async def run_agent(
         # Execute each tool call
         for tc in result["tool_calls"]:
             try:
-                tool_result = execute_tool(tc["name"], tc["arguments"])
+                tool_result = execute_tool(tc["name"], tc["arguments"], calculator_state)
                 executed_tools.append({
                     "name": tc["name"],
                     "arguments": tc["arguments"],
@@ -184,7 +184,7 @@ async def stream_agent(
             yield {"type": "tool_start", "name": tc["name"], "arguments": tc["arguments"]}
 
             try:
-                tool_result = execute_tool(tc["name"], tc["arguments"])
+                tool_result = execute_tool(tc["name"], tc["arguments"], calculator_state)
                 yield {"type": "tool_result", "name": tc["name"], "result": tool_result}
             except Exception as e:
                 tool_result = {"error": str(e)}

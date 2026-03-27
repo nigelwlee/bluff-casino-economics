@@ -60,6 +60,7 @@ You answer questions about casino economics by calling calculation tools. You NE
 7. If comparing, focus on the delta — what changed and by how much
 8. If ambiguous, ask ONE short clarifying question
 9. When the user has calculator values loaded (Session Context below), reference them briefly — e.g., "With your current Whale setup..."
+10. IMPORTANT: The user's calculator values are automatically applied to your tool calls. When calling tools, you do NOT need to manually pass values that match the Session Context — they are injected as defaults. Only pass values when the user explicitly asks for something different from what's shown in their calculator.
 """
 
 
@@ -70,46 +71,63 @@ def _format_session_context(state: dict[str, Any] | None) -> str:
 
     parts: list[str] = []
 
-    # Tier / volume
-    if "tier" in state:
-        parts.append(f"Selected tier: {state['tier']}")
-    if "nominal_volume" in state or "nominalVolume" in state:
-        vol = state.get("nominal_volume") or state.get("nominalVolume")
-        if vol:
-            parts.append(f"Monthly wager volume: ${vol:,.0f}")
+    # Volume
+    vol = state.get("monthlyVolume")
+    if vol:
+        parts.append(f"Monthly wager volume: ${vol:,.0f}")
 
-    # Wager mix
-    wager_mix = state.get("wager_mix") or state.get("wagerMix")
-    if wager_mix and isinstance(wager_mix, list):
-        mix_parts = []
-        for item in wager_mix:
-            cat = item.get("category", "unknown")
-            share = item.get("share", 0)
-            mix_parts.append(f"  {cat}: {share:.0%}")
-        if mix_parts:
-            parts.append("Wager mix:\n" + "\n".join(mix_parts))
+    # RTP / GGR
+    rtp = state.get("effectiveRtp")
+    if rtp:
+        ggr_rate = 1 - rtp
+        parts.append(f"Effective RTP: {rtp:.2%} (GGR rate: {ggr_rate:.2%})")
 
-    # Assumptions / overrides
-    assumptions = state.get("assumptions") or state.get("overrides") or {}
-    if assumptions:
-        assumption_lines = []
-        for key, value in assumptions.items():
-            if isinstance(value, float) and value < 1:
-                assumption_lines.append(f"  {key}: {value:.1%}")
-            else:
-                assumption_lines.append(f"  {key}: {value}")
-        if assumption_lines:
-            parts.append("Custom assumptions:\n" + "\n".join(assumption_lines))
+    # Bonus assumptions
+    bonuses = state.get("bonuses")
+    if bonuses and isinstance(bonuses, dict):
+        bonus_lines = []
+        labels = {
+            "level_up_pct": "Level Up",
+            "reload_pct": "Reload",
+            "weekly_pct": "Weekly",
+            "monthly_pct": "Monthly",
+            "lossback_standard_pct": "Lossback Standard",
+            "lossback_discretionary_pct": "Lossback Discretionary",
+            "casino_ops_pct": "Casino Ops",
+            "sportsbook_ops_pct": "Sportsbook Ops",
+            "affiliate_pct": "Affiliate",
+        }
+        for key, label in labels.items():
+            val = bonuses.get(key)
+            if val is not None:
+                bonus_lines.append(f"  {label}: {val:.1%}")
+        if bonus_lines:
+            parts.append("Bonus & cost assumptions:\n" + "\n".join(bonus_lines))
 
-    # Results summary if present
-    results = state.get("results") or state.get("lastResults")
-    if results and isinstance(results, dict):
-        if "ggr" in results:
-            parts.append(f"Current GGR: ${results['ggr']:,.2f}")
-        if "ngr_after_promos" in results:
-            parts.append(f"Current NGR after promos: ${results['ngr_after_promos']:,.2f}")
-        if "ngr_after_affiliate" in results:
-            parts.append(f"Current NGR after affiliate: ${results['ngr_after_affiliate']:,.2f}")
+    # Company assumptions
+    company = state.get("company")
+    if company and isinstance(company, dict):
+        cw = company.get("companyMonthlyWagers")
+        if cw:
+            parts.append(f"Total company wagers/month: ${cw:,.0f}")
+        vip_pct = company.get("vipPctOfTotal")
+        if vip_pct is not None:
+            parts.append(f"VIP % of total volume: {vip_pct:.0%}")
+        nvb = company.get("nonVipBonusPct")
+        if nvb is not None:
+            parts.append(f"Non-VIP bonus rate: {nvb:.1%}")
+        opex = company.get("monthlyOpex")
+        if opex:
+            parts.append(f"Monthly OPEX: ${opex:,.0f}")
+
+    # Deposit match
+    dm = state.get("depositMatch")
+    if dm and isinstance(dm, dict) and dm.get("enabled"):
+        parts.append(
+            f"Deposit match: {dm.get('bonusPct', 0):.0%} match, "
+            f"${dm.get('deposit', 0):,.0f} deposit, "
+            f"{dm.get('wagerReq', 0)}x rollover"
+        )
 
     if not parts:
         return ""

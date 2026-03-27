@@ -181,10 +181,99 @@ TOOL_DEFINITIONS = [
 ]
 
 
+# ─── Calculator State Merging ──────────────────────────────────────────────
+
+def _merge_calculator_defaults(
+    tool_name: str, arguments: dict, calc_state: dict | None
+) -> dict:
+    """Merge calculator UI state as defaults — LLM arguments always win."""
+    if not calc_state:
+        return arguments
+
+    merged = dict(arguments)
+    bonuses = calc_state.get("bonuses") or {}
+    company = calc_state.get("company") or {}
+    dm = calc_state.get("depositMatch") or {}
+
+    if tool_name in ("calculate_vip_pl", "calculate_vip_pl_comparison"):
+        # Merge bonus assumptions if LLM didn't provide them
+        if "assumptions" not in merged:
+            merged["assumptions"] = {}
+        assumptions = merged["assumptions"]
+        for key in [
+            "casino_ops_pct", "sportsbook_ops_pct", "affiliate_pct",
+            "level_up_pct", "reload_pct", "weekly_pct", "monthly_pct",
+            "lossback_standard_pct", "lossback_discretionary_pct",
+        ]:
+            if key not in assumptions and key in bonuses:
+                assumptions[key] = bonuses[key]
+        # Deposit match
+        if dm.get("enabled") and "deposit_match_enabled" not in assumptions:
+            assumptions["deposit_match_enabled"] = True
+            assumptions.setdefault("deposit_match_deposit", dm.get("deposit", 0))
+            assumptions.setdefault("deposit_match_bonus_pct", dm.get("bonusPct", 0))
+            assumptions.setdefault("deposit_match_max_bonus", dm.get("maxBonus", 0))
+            assumptions.setdefault("deposit_match_wager_req", dm.get("wagerReq", 0))
+            assumptions.setdefault("deposit_match_house_edge", dm.get("houseEdge", 0))
+        # Volume
+        if "nominal_volume" not in merged and "monthlyVolume" in calc_state:
+            merged["nominal_volume"] = calc_state["monthlyVolume"]
+
+    elif tool_name == "calculate_vip_company_impact":
+        if "vip_pct_of_total" not in merged:
+            merged["vip_pct_of_total"] = company.get("vipPctOfTotal", 0.70)
+        if "non_vip_bonus_pct" not in merged:
+            merged["non_vip_bonus_pct"] = company.get("nonVipBonusPct", 0.292)
+        # Derive VIP bonus rate from bonuses
+        if "vip_bonus_pct" not in merged:
+            bonus_keys = [
+                "level_up_pct", "reload_pct", "weekly_pct", "monthly_pct",
+                "lossback_standard_pct", "lossback_discretionary_pct",
+            ]
+            total = sum(bonuses.get(k, 0) for k in bonus_keys)
+            if total > 0:
+                merged["vip_bonus_pct"] = total
+        # Monthly OPEX as override
+        if "overrides" not in merged:
+            merged["overrides"] = {}
+        if "monthly_opex" not in merged.get("overrides", {}):
+            opex = company.get("monthlyOpex")
+            if opex:
+                merged["overrides"]["monthly_opex"] = opex
+
+    elif tool_name == "calculate_company_pl":
+        if "starting_wagers" not in merged:
+            cw = company.get("companyMonthlyWagers")
+            if cw:
+                merged["starting_wagers"] = cw
+        if "overrides" not in merged:
+            merged["overrides"] = {}
+        overrides = merged["overrides"]
+        if "bonus_pct" not in overrides:
+            # Compute blended bonus rate same as frontend
+            vip_pct = company.get("vipPctOfTotal", 0.80)
+            nvb = company.get("nonVipBonusPct", 0.292)
+            bonus_keys = [
+                "level_up_pct", "reload_pct", "weekly_pct", "monthly_pct",
+                "lossback_standard_pct", "lossback_discretionary_pct",
+            ]
+            vip_bonus = sum(bonuses.get(k, 0) for k in bonus_keys)
+            blended = vip_pct * vip_bonus + (1 - vip_pct) * nvb
+            overrides["bonus_pct"] = blended
+        opex = company.get("monthlyOpex")
+        if opex and "monthly_opex" not in overrides:
+            overrides["monthly_opex"] = opex
+
+    return merged
+
+
 # ─── Tool Execution Dispatch ────────────────────────────────────────────────
 
-def execute_tool(tool_name: str, arguments: dict) -> dict:
+def execute_tool(
+    tool_name: str, arguments: dict, calculator_state: dict | None = None
+) -> dict:
     """Execute a tool by name with the given arguments. Returns the result dict."""
+    arguments = _merge_calculator_defaults(tool_name, arguments, calculator_state)
     if tool_name == "calculate_vip_pl":
         return calculate_vip_pl(
             tier=arguments.get("tier"),

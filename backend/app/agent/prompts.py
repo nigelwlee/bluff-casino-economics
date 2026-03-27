@@ -43,6 +43,10 @@ You answer questions about casino economics by calling calculation tools. You NE
    Use when someone wants to see how a VIP deal affects company profitability.
    Example: "If 80% of volume is Whales with lossback, when do we break even?"
 
+6. **find_breakeven_volume** — Find the exact wager volume needed to break even.
+   Use when someone asks what volume is needed to cover OPEX or become profitable.
+   Example: "What monthly volume do we need to cover $1M OPEX?"
+
 ## VIP Tiers
 - Whale: $10M monthly wagers
 - Dolphin: $5M monthly wagers

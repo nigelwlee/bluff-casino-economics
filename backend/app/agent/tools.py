@@ -8,6 +8,7 @@ from app.engine.vip_calculator import calculate_vip_pl, compare_vip_pl
 from app.engine.company_pl import (
     calculate_company_pl_projection,
     calculate_vip_company_impact,
+    find_breakeven_volume,
 )
 from app.engine.effective_bonus import calculate_effective_bonus
 
@@ -178,6 +179,31 @@ TOOL_DEFINITIONS = [
             "required": ["vip_monthly_wagers"],
         },
     },
+    {
+        "name": "find_breakeven_volume",
+        "description": "Find the exact monthly wager volume needed to break even (profit after OPEX = 0). Uses binary search with the user's current bonus rates, ops costs, and OPEX. Use this whenever someone asks about breakeven volume, minimum volume to cover costs, or what volume is needed to be profitable.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "vip_pct_of_total": {
+                    "type": "number",
+                    "description": "VIP share of total volume (0-1). Default from calculator.",
+                },
+                "vip_bonus_pct": {
+                    "type": "number",
+                    "description": "VIP bonus rate as % of GGR. Default from calculator.",
+                },
+                "non_vip_bonus_pct": {
+                    "type": "number",
+                    "description": "Non-VIP bonus rate. Default 0.292.",
+                },
+                "overrides": {
+                    "type": "object",
+                    "description": "Override company P&L defaults (monthly_opex, etc.).",
+                },
+            },
+        },
+    },
 ]
 
 
@@ -240,6 +266,25 @@ def _merge_calculator_defaults(
             opex = company.get("monthlyOpex")
             if opex:
                 merged["overrides"]["monthly_opex"] = opex
+
+    elif tool_name == "find_breakeven_volume":
+        if "vip_pct_of_total" not in merged:
+            merged["vip_pct_of_total"] = company.get("vipPctOfTotal", 0.70)
+        if "non_vip_bonus_pct" not in merged:
+            merged["non_vip_bonus_pct"] = company.get("nonVipBonusPct", 0.292)
+        if "vip_bonus_pct" not in merged:
+            bonus_keys = [
+                "level_up_pct", "reload_pct", "weekly_pct", "monthly_pct",
+                "lossback_standard_pct", "lossback_discretionary_pct",
+            ]
+            total = sum(bonuses.get(k, 0) for k in bonus_keys)
+            if total > 0:
+                merged["vip_bonus_pct"] = total
+        if "overrides" not in merged:
+            merged["overrides"] = {}
+        opex = company.get("monthlyOpex")
+        if opex and "monthly_opex" not in merged.get("overrides", {}):
+            merged["overrides"]["monthly_opex"] = opex
 
     elif tool_name == "calculate_company_pl":
         if "starting_wagers" not in merged:
@@ -313,6 +358,13 @@ def execute_tool(
             vip_deposit_match_cost=arguments.get("vip_deposit_match_cost", 0.0),
             num_months=arguments.get("num_months", 12),
             growth_rate=arguments.get("growth_rate"),
+            overrides=arguments.get("overrides"),
+        )
+    elif tool_name == "find_breakeven_volume":
+        return find_breakeven_volume(
+            vip_pct_of_total=arguments.get("vip_pct_of_total", 0.70),
+            vip_bonus_pct=arguments.get("vip_bonus_pct", 0.55),
+            non_vip_bonus_pct=arguments.get("non_vip_bonus_pct", 0.292),
             overrides=arguments.get("overrides"),
         )
     else:
